@@ -3,407 +3,394 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音声録音＆議事録作成アプリ</title>
+    <title>AI議事録作成ツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
         }
-        .container {
-            background-color: #ffffff;
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-            max-width: 800px;
-            width: 100%;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
+        .glowing-mic {
+            animation: glowing 2s infinite;
         }
-        textarea {
-            min-height: 250px;
-            resize: vertical;
+        @keyframes glowing {
+            0% { box-shadow: 0 0 5px #f87171, 0 0 10px #f87171; }
+            50% { box-shadow: 0 0 20px #ef4444, 0 0 30px #ef4444; }
+            100% { box-shadow: 0 0 5px #f87171, 0 0 10px #f87171; }
         }
-        .button-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
+        /* スピナーアニメーション */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
         }
-        .button {
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.2s ease-in-out;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .button-primary {
-            background-color: #3b82f6;
-            color: white;
-        }
-        .button-primary:hover:not(:disabled) {
-            background-color: #2563eb;
-            transform: translateY(-2px);
-        }
-        .button-secondary {
-            background-color: #6b7280;
-            color: white;
-        }
-        .button-secondary:hover:not(:disabled) {
-            background-color: #4b5563;
-            transform: translateY(-2px);
-        }
-        .button-danger {
-            background-color: #ef4444;
-            color: white;
-        }
-        .button-danger:hover:not(:disabled) {
-            background-color: #dc2626;
-            transform: translateY(-2px);
-        }
-        .button-disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-        .status-message {
-            font-size: 1.1em;
-            font-weight: 600;
-            color: #1f2937;
-            display: flex; /* Flexboxを使ってテキストとタイマーを横並びにする */
-            align-items: center;
-            justify-content: center;
-            gap: 8px; /* テキストとタイマーの間のスペース */
-        }
-        .recording-timer {
-            font-size: 1.2em;
-            font-weight: 700;
-            color: #3b82f6; /* プライマリボタンの色と合わせる */
-        }
-        @media (max-width: 640px) {
-            .button-group {
-                flex-direction: column;
-            }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1 class="text-3xl font-bold text-gray-800 mb-4">音声録音＆議事録作成アプリ</h1>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
 
-        <!-- ステータスメッセージ表示エリア -->
-        <div id="statusArea" class="status-message">
-            <span id="statusText">マイクアクセスを許可してください。</span>
-            <span id="recordingTimer" class="recording-timer" style="display:none;">00:00</span>
+    <div class="w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-10 space-y-8">
+        <!-- ヘッダー -->
+        <div class="text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-600">AI議事録作成ツール</h1>
+            <p class="text-gray-400 mt-2">Geminiが音声から議事録を自動で生成します。</p>
         </div>
 
-        <!-- 録音コントロール -->
-        <div class="button-group">
-            <button id="startButton" class="button button-primary">録音開始</button>
-            <button id="stopButton" class="button button-secondary" disabled>録音停止</button>
+        <!-- メインコンテンツ -->
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- 左側: 入力エリア -->
+            <div class="space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">1</div>
+                    <h2 class="text-xl font-semibold">音声入力</h2>
+                </div>
+                <div id="input-area" class="bg-gray-900 p-6 rounded-lg h-full flex flex-col items-center justify-center space-y-4">
+                     <!-- 録音機能 -->
+                    <button id="record-btn" class="bg-red-600 hover:bg-red-700 text-white rounded-full w-24 h-24 flex flex-col items-center justify-center transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i id="mic-icon" class="fas fa-microphone text-4xl"></i>
+                        <span id="mic-label" class="mt-2 text-sm font-medium">録音開始</span>
+                    </button>
+                    <p id="record-status" class="text-gray-400 h-5 text-center">&nbsp;</p>
+
+                    <!-- ファイルアップロード機能 -->
+                    <div class="w-full pt-4 border-t border-gray-700 text-center">
+                        <p class="text-gray-500 text-sm">または</p>
+                        <div class="mt-2 relative">
+                             <input type="file" id="audio-upload" class="hidden" accept="audio/*">
+                             <label for="audio-upload" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg inline-block cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                 <i class="fas fa-upload mr-2"></i>ファイルをアップロード
+                             </label>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-2">ファイルをアップロードすると音声が再生され、文字起こしが始まります。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側: 文字起こしテキストエリア -->
+            <div class="space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">2</div>
+                    <h2 class="text-xl font-semibold">文字起こし結果</h2>
+                </div>
+                <div class="bg-gray-900 p-2 rounded-lg h-full">
+                    <textarea id="transcribed-text" class="w-full h-64 md:h-full bg-gray-900 border-2 border-gray-700 rounded-md p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="ここに文字起こしされたテキストが表示されます..."></textarea>
+                </div>
+            </div>
         </div>
 
-        <!-- 議事録入力エリア -->
-        <div class="flex flex-col gap-2">
-            <label for="meetingMinutes" class="text-lg font-semibold text-gray-800 text-left">議事録:</label>
-            <textarea id="meetingMinutes"
-                      class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                      placeholder="ここに議事録を入力してください..."
-                      readonly></textarea> <!-- 議事録は自動生成されるため、読み取り専用に設定 -->
+        <!-- 議事録作成ボタン -->
+        <div class="text-center pt-6 border-t border-gray-700">
+            <button id="generate-btn" class="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i id="generate-icon" class="fas fa-cogs mr-2"></i>
+                <span id="generate-label">議事録を作成</span>
+            </button>
         </div>
 
-        <!-- アクションボタン -->
-        <div class="button-group">
-            <button id="downloadMinutesButton" class="button button-primary" disabled>議事録ダウンロード</button>
-            <button id="downloadAudioButton" class="button button-primary" disabled>音声ダウンロード</button>
-            <button id="clearMinutesButton" class="button button-danger" disabled>議事録クリア</button>
-            <button id="clearAudioButton" class="button button-danger" disabled>録音クリア</button>
+        <!-- 出力エリア -->
+        <div id="output-area" class="space-y-6 hidden">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">3</div>
+                <h2 class="text-xl font-semibold">生成された議事録</h2>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 p-6 rounded-lg relative">
+                <button id="copy-btn" class="absolute top-3 right-3 bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded-lg text-sm">
+                    <i class="fas fa-copy mr-1"></i>コピー
+                </button>
+                <div id="minutes-output" class="prose prose-invert max-w-none prose-p:my-2 prose-headings:my-4 prose-ul:my-2 whitespace-pre-wrap"></div>
+            </div>
+        </div>
+        
+        <!-- APIサポート確認メッセージ -->
+        <div id="api-support-message" class="hidden text-center text-red-400 bg-red-900/50 p-4 rounded-lg">
+             お使いのブラウザは音声認識APIに対応していません。Google Chromeの最新版でお試しください。
         </div>
     </div>
 
     <script>
-        // DOM要素の参照を取得
-        const startButton = document.getElementById('startButton');
-        const stopButton = document.getElementById('stopButton');
-        const downloadMinutesButton = document.getElementById('downloadMinutesButton');
-        const downloadAudioButton = document.getElementById('downloadAudioButton');
-        const clearMinutesButton = document.getElementById('clearMinutesButton');
-        const clearAudioButton = document.getElementById('clearAudioButton');
-        const meetingMinutesTextarea = document.getElementById('meetingMinutes');
-        const statusText = document.getElementById('statusText'); // ステータステキスト表示用
-        const recordingTimer = document.getElementById('recordingTimer'); // 録音時間表示用
+        // DOM要素の取得
+        const recordBtn = document.getElementById('record-btn');
+        const micIcon = document.getElementById('mic-icon');
+        const micLabel = document.getElementById('mic-label');
+        const recordStatus = document.getElementById('record-status');
+        const audioUpload = document.getElementById('audio-upload');
+        const audioUploadLabel = document.querySelector('label[for="audio-upload"]');
+        const transcribedText = document.getElementById('transcribed-text');
+        const generateBtn = document.getElementById('generate-btn');
+        const generateIcon = document.getElementById('generate-icon');
+        const generateLabel = document.getElementById('generate-label');
+        const outputArea = document.getElementById('output-area');
+        const minutesOutput = document.getElementById('minutes-output');
+        const copyBtn = document.getElementById('copy-btn');
+        const apiSupportMessage = document.getElementById('api-support-message');
 
-        let mediaRecorder; // MediaRecorderインスタンスを保持する変数
-        let audioChunks = []; // 録音された音声データを格納する配列
-        let audioBlob = null; // 最終的な音声Blob
-
-        let timerInterval = null; // タイマーのsetInterval ID
-        let startTime = 0;        // 録音開始時刻
-
-        /**
-         * ボタンの有効/無効状態を更新する関数
-         * @param {boolean} isRecording 現在録音中かどうか
-         * @param {boolean} isGeneratingMinutes 現在議事録生成中かどうか
-         */
-        function updateButtonStates(isRecording, isGeneratingMinutes = false) {
-            startButton.disabled = isRecording || isGeneratingMinutes;
-            stopButton.disabled = !isRecording;
-            
-            // 議事録ダウンロードボタンは、録音中でなく、生成中でなく、かつ議事録の内容がある場合に有効
-            downloadMinutesButton.disabled = isRecording || isGeneratingMinutes || meetingMinutesTextarea.value.trim() === '';
-            // 音声ダウンロードボタンは、録音中でなく、生成中でなく、かつ音声Blobがある場合に有効
-            downloadAudioButton.disabled = isRecording || isGeneratingMinutes || !audioBlob;
-            
-            // 議事録クリアボタンは、録音中でなく、生成中でなく、かつ議事録の内容がある場合に有効
-            clearMinutesButton.disabled = isRecording || isGeneratingMinutes || meetingMinutesTextarea.value.trim() === '';
-            // 録音クリアボタンは、録音中でなく、生成中でなく、かつ音声Blobがある場合に有効
-            clearAudioButton.disabled = isRecording || isGeneratingMinutes || !audioBlob;
-
-            // ボタンのスタイルを更新
-            startButton.classList.toggle('button-disabled', startButton.disabled);
-            stopButton.classList.toggle('button-disabled', stopButton.disabled);
-            downloadMinutesButton.classList.toggle('button-disabled', downloadMinutesButton.disabled);
-            downloadAudioButton.classList.toggle('button-disabled', downloadAudioButton.disabled);
-            clearMinutesButton.classList.toggle('button-disabled', clearMinutesButton.disabled);
-            clearAudioButton.classList.toggle('button-disabled', clearAudioButton.disabled);
+        // SpeechRecognition APIの準備
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ja-JP';
+            recognition.interimResults = true;
+            recognition.continuous = true;
+        } else {
+            document.getElementById('input-area').classList.add('hidden');
+            apiSupportMessage.classList.remove('hidden');
         }
 
-        /**
-         * タイマー表示を更新する関数
-         */
-        function updateTimerDisplay() {
-            const elapsed = Date.now() - startTime;
-            const minutes = Math.floor(elapsed / 60000);
-            const seconds = Math.floor((elapsed % 60000) / 1000);
-            recordingTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        let isRecording = false;
+        let finalTranscript = '';
+
+        // --- ファイルアップロード処理 ---
+        if(recognition) {
+            audioUpload.addEventListener('change', handleFileUpload);
         }
 
-        /**
-         * マイクアクセスを要求し、MediaRecorderをセットアップする関数
-         */
-        async function setupRecorder() {
-            try {
-                // ユーザーのマイクからのストリームを取得
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream); // MediaRecorderインスタンスを作成
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-                // 音声データが利用可能になったときのイベントハンドラ
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data); // データをチャンクとして追加
-                };
-
-                // 録音が停止したときのイベントハンドラ
-                mediaRecorder.onstop = () => {
-                    clearInterval(timerInterval); // タイマーを停止
-                    timerInterval = null;
-                    recordingTimer.style.display = 'none'; // タイマー表示を非表示にする
-                    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    audioChunks = []; // 次の録音のためにチャンクをクリア
-                    statusText.textContent = '録音が停止されました。議事録を生成しています...'; // ステータステキストを更新
-                    // 議事録の生成プロセスを開始
-                    processAudioAndGenerateMinutes();
-                };
-
-                statusText.textContent = 'マイクアクセスが許可されました。録音を開始できます。';
-                updateButtonStates(false, false); // 初期状態では録音中も生成中でもない
-            } catch (error) {
-                console.error('マイクアクセスエラー:', error);
-                statusText.textContent = 'マイクへのアクセスが拒否されました。録音を開始できません。マイクが接続されているか確認してください。';
-                updateButtonStates(false, false); // 録音不可の状態
-                startButton.disabled = true;
-                startButton.classList.add('button-disabled');
-            }
-        }
-
-        /**
-         * 録音された音声から議事録を生成する関数
-         */
-        async function processAudioAndGenerateMinutes() {
-            if (!audioBlob) {
-                statusText.textContent = '録音された音声がありません。議事録は生成できません。';
-                updateButtonStates(false, false);
+            if (!file.type.startsWith('audio/')) {
+                recordStatus.textContent = 'エラー: 音声ファイルを選択してください。';
                 return;
             }
 
-            meetingMinutesTextarea.value = ''; // 議事録エリアをクリア
-            updateButtonStates(false, true); // 生成中状態に更新 (録音は停止、生成中)
+            // 処理中は操作を無効化
+            recordBtn.disabled = true;
+            audioUpload.disabled = true;
+            audioUploadLabel.classList.add('opacity-50', 'cursor-not-allowed');
+            transcribedText.value = ''; // テキストをクリア
+            finalTranscript = '';     // 内部のテキストもクリア
 
-            try {
-                const reader = new FileReader();
+            recordStatus.textContent = 'ファイルの文字起こしを準備中...';
 
-                reader.onloadend = async function() {
-                    // Base64エンコードされたデータから"data:audio/webm;base64,"の部分を削除
-                    const base64Data = reader.result.split(',')[1];
+            const audio = new Audio(URL.createObjectURL(file));
 
-                    // Gemini APIへのリクエストペイロードを構築
-                    const prompt = "以下の音声データに基づいて、会議の議事録を作成してください。主な議題、決定事項、アクションアイテムを箇条書きでまとめてください。詳細な説明や箇条書き以外の要素は含めず、純粋な議事録形式でお願いします。";
-                    let chatHistory = [];
-                    chatHistory.push({
-                        role: "user",
-                        parts: [
-                            { text: prompt },
-                            {
-                                inlineData: {
-                                    mimeType: "audio/webm", // 録音されたBlobのMIMEタイプ
-                                    data: base64Data
-                                }
-                            }
-                        ]
-                    });
+            const cleanup = () => {
+                recordBtn.disabled = false;
+                audioUpload.disabled = false;
+                audioUploadLabel.classList.remove('opacity-50', 'cursor-not-allowed');
+                URL.revokeObjectURL(audio.src);
+            };
 
-                    const payload = { contents: chatHistory };
-                    const apiKey = ""; // Canvas環境で自動的に提供されます
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            audio.oncanplaythrough = () => {
+                recordStatus.textContent = '文字起こし中 (音声が再生されます)';
+                startRecording(true); // UIを変更せずに録音開始
+                audio.play();
+            };
 
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
+            audio.onended = () => {
+                stopRecording(true); // UIを変更せずに録音停止
+                recordStatus.textContent = 'ファイルの文字起こしが完了しました。';
+                cleanup();
+            };
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        console.error('Gemini API request failed:', response.status, errorData);
-                        statusText.textContent = `議事録の生成に失敗しました: APIエラー (${response.status})。詳細をコンソールで確認してください。`;
-                        meetingMinutesTextarea.value = `エラーが発生しました: ${errorData.error?.message || '不明なAPIエラー'}`;
-                        updateButtonStates(false, false);
-                        return;
-                    }
-
-                    const result = await response.json();
-
-                    if (result.candidates && result.candidates.length > 0 &&
-                        result.candidates[0].content && result.candidates[0].content.parts &&
-                        result.candidates[0].content.parts.length > 0) {
-                        const generatedText = result.candidates[0].content.parts[0].text;
-                        meetingMinutesTextarea.value = generatedText;
-                        statusText.textContent = '議事録が正常に生成されました。';
-                    } else {
-                        statusText.textContent = '議事録の生成に失敗しました。Geminiからの応答形式が予期せぬものでした。';
-                        meetingMinutesTextarea.value = '議事録を生成できませんでした。音声がクリアであるか、または内容が短すぎないか確認してください。';
-                        console.error('Gemini API response format unexpected:', result);
-                    }
-                };
-
-                reader.onerror = function(error) {
-                    console.error('音声Blobの読み取りエラー:', error);
-                    statusText.textContent = '音声ファイルの処理中にエラーが発生しました。';
-                    meetingMinutesTextarea.value = '音声ファイルを読み込む際にエラーが発生しました。';
-                    updateButtonStates(false, false);
-                };
-
-                reader.readAsDataURL(audioBlob); // BlobをBase64データURLとして読み込む
-
-            } catch (error) {
-                console.error('議事録の生成中に予期せぬエラーが発生:', error);
-                statusText.textContent = '議事録の生成中に予期せぬエラーが発生しました。';
-                meetingMinutesTextarea.value = `予期せぬエラー: ${error.message}`;
-            } finally {
-                // 処理完了後、ボタンの状態を更新 (録音中も生成中でもない)
-                updateButtonStates(false, false);
-            }
+            audio.onerror = (e) => {
+                recordStatus.textContent = 'エラー: 音声ファイルの再生に失敗しました。';
+                if (isRecording) {
+                    stopRecording(true);
+                }
+                cleanup();
+            };
         }
 
-        // 録音開始ボタンのイベントリスナー
-        startButton.addEventListener('click', () => {
-            if (mediaRecorder && mediaRecorder.state === 'inactive') {
-                audioChunks = []; // 新しい録音の前にチャンクをクリア
-                audioBlob = null; // 以前の音声データをクリア
-                meetingMinutesTextarea.value = ''; // 議事録エリアもクリア
-                mediaRecorder.start(); // 録音を開始
+
+        // --- 録音関連の処理 ---
+        if (recognition) {
+            recordBtn.addEventListener('click', () => {
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            });
+
+            const startRecording = (isFromFile = false) => {
+                if (isRecording) return;
+                isRecording = true;
+                finalTranscript = transcribedText.value; 
+                recognition.start();
                 
-                // タイマーを開始
-                startTime = Date.now();
-                recordingTimer.textContent = '00:00';
-                recordingTimer.style.display = 'inline-block'; // タイマーを表示
-                timerInterval = setInterval(updateTimerDisplay, 1000);
+                if (!isFromFile) {
+                    recordBtn.classList.add('glowing-mic');
+                    recordBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    recordBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    micIcon.classList.remove('fa-microphone');
+                    micIcon.classList.add('fa-stop');
+                    micLabel.textContent = '録音停止';
+                    recordStatus.textContent = '録音中...';
+                }
+            };
 
-                statusText.textContent = '録音中...'; // ステータステキストのみ更新
-                updateButtonStates(true, false); // 録音中に更新
-            }
-        });
+            const stopRecording = (isFromFile = false) => {
+                if (!isRecording) return;
+                isRecording = false;
+                recognition.stop();
 
-        // 録音停止ボタンのイベントリスナー
-        stopButton.addEventListener('click', () => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop(); // 録音を停止。onstopイベントハンドラが残りの処理を行います
-            }
-        });
+                if (!isFromFile) {
+                    recordBtn.classList.remove('glowing-mic');
+                    recordBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    recordBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    micIcon.classList.add('fa-microphone');
+                    micIcon.classList.remove('fa-stop');
+                    micLabel.textContent = '録音開始';
+                    recordStatus.textContent = '録音を停止しました。';
+                }
+                
+                if (transcribedText.value.trim().length > 0) {
+                    generateBtn.disabled = false;
+                }
+            };
+            
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                transcribedText.value = finalTranscript + interimTranscript;
+                
+                if (transcribedText.value.trim().length > 0) {
+                    generateBtn.disabled = false;
+                }
+            };
+            
+            recognition.onend = () => {
+                const isFileMode = audioUpload.disabled;
+                if (isRecording && !isFileMode) {
+                    // マイク録音中にも関わらず停止した場合、自動で再開
+                    recognition.start();
+                }
+                // ファイル再生の場合は onended で stopRecording が呼ばれるため、ここでは何もしない
+            };
 
-        /**
-         * ファイルをダウンロードするためのヘルパー関数
-         * @param {Blob} blob ダウンロードするデータを含むBlob
-         * @param {string} filename ダウンロードするファイルの名前
-         * @param {string} type ファイルのMIMEタイプ
-         */
-        function downloadFile(blob, filename, type) {
-            const url = URL.createObjectURL(blob); // BlobからURLを作成
-            const a = document.createElement('a'); // <a>要素を作成
-            a.style.display = 'none'; // 要素を非表示にする
-            a.href = url; // URLを設定
-            a.download = filename; // ファイル名を設定
-            document.body.appendChild(a); // DOMに追加
-            a.click(); // クリックイベントをシミュレートしてダウンロードをトリガー
-            window.URL.revokeObjectURL(url); // URLを解放してメモリをクリーンアップ
-            a.remove(); // 要素を削除
+            recognition.onerror = (event) => {
+                recordStatus.textContent = `エラーが発生しました: ${event.error}`;
+                if (isRecording) {
+                    stopRecording(audioUpload.disabled); // ファイルモードかどうかを渡す
+                }
+            };
         }
+        
+        transcribedText.addEventListener('input', () => {
+            generateBtn.disabled = transcribedText.value.trim().length === 0;
+        });
 
-        // 議事録ダウンロードボタンのイベントリスナー
-        downloadMinutesButton.addEventListener('click', () => {
-            const minutesText = meetingMinutesTextarea.value;
-            if (minutesText.trim() === '') {
-                statusText.textContent = '議事録が空です。ダウンロードできません。';
+        // --- Gemini API関連の処理 ---
+        generateBtn.addEventListener('click', async () => {
+            const text = transcribedText.value;
+            if (!text.trim()) {
+                alert('議事録を作成するためのテキストがありません。');
                 return;
             }
-            const minutesBlob = new Blob([minutesText], { type: 'text/plain;charset=utf-8' });
-            const timestamp = new Date().toISOString().slice(0, 16).replace(/:/g, '-'); // 例: 2023-10-27T10-30
-            downloadFile(minutesBlob, `議事録-${timestamp}.txt`, 'text/plain');
-            statusText.textContent = '議事録をダウンロードしました。';
-        });
 
-        // 音声ダウンロードボタンのイベントリスナー
-        downloadAudioButton.addEventListener('click', () => {
-            if (audioBlob) {
-                const timestamp = new Date().toISOString().slice(0, 16).replace(/:/g, '-');
-                downloadFile(audioBlob, `録音音声-${timestamp}.webm`, 'audio/webm');
-                statusText.textContent = '録音音声をダウンロードしました。';
-            } else {
-                statusText.textContent = '録音された音声がありません。';
+            setLoading(true);
+
+            try {
+                const prompt = `以下のテキストは会議の音声記録です。この内容に基づき、プロフェッショナルな形式の議事録を作成してください。
+                議事録には以下の要素を必ず含めてください。
+
+                1.  **概要:** 会議全体の簡単なまとめ。
+                2.  **決定事項:** 会議で決定されたことを箇条書きでリストアップ。
+                3.  **ToDo (アクションアイテム):** 誰がいつまでに何をするのかを明確にしたリスト。
+
+                ---
+                ${text}
+                ---
+                `;
+
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.5,
+                        topK: 1,
+                        topP: 1,
+                        maxOutputTokens: 2048,
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error ? errorData.error.message : `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0]?.content?.parts?.[0]) {
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    displayMinutes(generatedText);
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    displayMinutes("エラー: AIからの応答を解析できませんでした。コンソールを確認してください。");
+                }
+            } catch (error) {
+                console.error('Error during API call:', error);
+                displayMinutes(`エラーが発生しました: ${error.message}\nAPIキーの設定やネットワーク接続を確認してください。`);
+            } finally {
+                setLoading(false);
             }
         });
 
-        // 議事録クリアボタンのイベントリスナー
-        clearMinutesButton.addEventListener('click', () => {
-            meetingMinutesTextarea.value = ''; // 議事録テキストエリアを空にする
-            statusText.textContent = '議事録がクリアされました。';
-            updateButtonStates(false, false); // ボタンの状態を更新
+        const setLoading = (isLoading) => {
+            generateBtn.disabled = isLoading;
+            if (isLoading) {
+                generateIcon.classList.remove('fa-cogs');
+                generateIcon.innerHTML = '<div class="loader"></div>'; 
+                generateLabel.textContent = '生成中...';
+            } else {
+                generateIcon.innerHTML = '';
+                generateIcon.classList.add('fas', 'fa-cogs');
+                generateLabel.textContent = '議事録を作成';
+            }
+        };
+
+        const displayMinutes = (text) => {
+            let html = text
+                .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold text-purple-300 mt-4 mb-2">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-indigo-300 mt-6 mb-3">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-extrabold text-blue-300 mt-8 mb-4">$1</h1>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code class="bg-gray-700 text-red-300 rounded px-1 py-0.5">$1</code>')
+                .replace(/^- (.*$)/gim, '<li>$1</li>')
+                .replace(/^\* (.*$)/gim, '<li>$1</li>')
+                .replace(/^(?!<h[1-3]>|<li>|<ul>|<ol>)(.*)$/gm, (match, p1) => p1.trim() === '' ? '' : `<p>${p1}</p>`)
+                .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>').replace(/<\/ul>\s*<ul>/g, '');
+
+            minutesOutput.innerHTML = html;
+            outputArea.classList.remove('hidden');
+        };
+        
+        copyBtn.addEventListener('click', () => {
+            const textToCopy = minutesOutput.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i>コピー完了';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="fas fa-copy mr-1"></i>コピー';
+                }, 2000);
+            });
         });
 
-        // 録音クリアボタンのイベントリスナー
-        clearAudioButton.addEventListener('click', () => {
-            audioBlob = null; // 音声Blobをnullにする
-            audioChunks = []; // 音声チャンクを空にする
-            clearInterval(timerInterval); // タイマーが動作している場合は停止
-            timerInterval = null;
-            recordingTimer.textContent = '00:00'; // タイマー表示をリセット
-            recordingTimer.style.display = 'none'; // タイマー表示を非表示にする
-            statusText.textContent = '録音データがクリアされました。';
-            updateButtonStates(false, false);
-        });
-
-        // アプリケーションがロードされたときにレコーダーをセットアップ
-        window.onload = setupRecorder;
     </script>
 </body>
 </html>
