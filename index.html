@@ -219,7 +219,7 @@
                 updateButtonStates(false, false); // 初期状態では録音中も生成中でもない
             } catch (error) {
                 console.error('マイクアクセスエラー:', error);
-                statusText.textContent = 'マイクへのアクセスが拒否されました。録音を開始できません。';
+                statusText.textContent = 'マイクへのアクセスが拒否されました。録音を開始できません。マイクが接続されているか確認してください。';
                 updateButtonStates(false, false); // 録音不可の状態
                 startButton.disabled = true;
                 startButton.classList.add('button-disabled');
@@ -231,7 +231,8 @@
          */
         async function processAudioAndGenerateMinutes() {
             if (!audioBlob) {
-                statusText.textContent = '録音された音声がありません。';
+                statusText.textContent = '録音された音声がありません。議事録は生成できません。';
+                updateButtonStates(false, false);
                 return;
             }
 
@@ -271,6 +272,15 @@
                         body: JSON.stringify(payload)
                     });
 
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error('Gemini API request failed:', response.status, errorData);
+                        statusText.textContent = `議事録の生成に失敗しました: APIエラー (${response.status})。詳細をコンソールで確認してください。`;
+                        meetingMinutesTextarea.value = `エラーが発生しました: ${errorData.error?.message || '不明なAPIエラー'}`;
+                        updateButtonStates(false, false);
+                        return;
+                    }
+
                     const result = await response.json();
 
                     if (result.candidates && result.candidates.length > 0 &&
@@ -281,6 +291,7 @@
                         statusText.textContent = '議事録が正常に生成されました。';
                     } else {
                         statusText.textContent = '議事録の生成に失敗しました。Geminiからの応答形式が予期せぬものでした。';
+                        meetingMinutesTextarea.value = '議事録を生成できませんでした。音声がクリアであるか、または内容が短すぎないか確認してください。';
                         console.error('Gemini API response format unexpected:', result);
                     }
                 };
@@ -288,13 +299,16 @@
                 reader.onerror = function(error) {
                     console.error('音声Blobの読み取りエラー:', error);
                     statusText.textContent = '音声ファイルの処理中にエラーが発生しました。';
+                    meetingMinutesTextarea.value = '音声ファイルを読み込む際にエラーが発生しました。';
+                    updateButtonStates(false, false);
                 };
 
                 reader.readAsDataURL(audioBlob); // BlobをBase64データURLとして読み込む
 
             } catch (error) {
-                console.error('議事録の生成中にエラーが発生:', error);
-                statusText.textContent = '議事録の生成中にエラーが発生しました。';
+                console.error('議事録の生成中に予期せぬエラーが発生:', error);
+                statusText.textContent = '議事録の生成中に予期せぬエラーが発生しました。';
+                meetingMinutesTextarea.value = `予期せぬエラー: ${error.message}`;
             } finally {
                 // 処理完了後、ボタンの状態を更新 (録音中も生成中でもない)
                 updateButtonStates(false, false);
