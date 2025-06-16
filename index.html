@@ -53,23 +53,28 @@
                     <div class="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">1</div>
                     <h2 class="text-xl font-semibold">音声入力</h2>
                 </div>
-                <div id="input-area" class="bg-gray-900 p-6 rounded-lg h-full flex flex-col items-center justify-center space-y-4">
+                <div id="input-area" class="bg-gray-900 p-6 rounded-lg h-full flex flex-col items-center justify-center space-y-2">
                      <!-- 録音機能 -->
                     <button id="record-btn" class="bg-red-600 hover:bg-red-700 text-white rounded-full w-24 h-24 flex flex-col items-center justify-center transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
                         <i id="mic-icon" class="fas fa-microphone text-4xl"></i>
                         <span id="mic-label" class="mt-2 text-sm font-medium">録音開始</span>
                     </button>
                     <!-- ステータスとタイマー表示エリア -->
-                    <div class="h-8 text-center">
+                    <div class="h-8 text-center mt-2">
                         <p id="record-status" class="text-gray-400">&nbsp;</p>
                         <p id="timer" class="text-gray-400 font-mono text-lg hidden">00:00</p>
                     </div>
 
+                    <!-- ダウンロードボタン -->
+                    <a id="download-btn" class="hidden mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>録音をダウンロード
+                    </a>
+
                     <!-- ファイルアップロード機能 -->
-                    <div class="w-full pt-4 border-t border-gray-700 text-center">
+                    <div class="w-full pt-4 border-t border-gray-700 text-center mt-4">
                         <p class="text-gray-500 text-sm">または</p>
                         <div class="mt-2 relative">
-                             <input type="file" id="audio-upload" class="hidden" accept="audio/*">
+                             <input type="file" id="audio-upload" class="hidden" accept="audio/*,.m4a">
                              <label for="audio-upload" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg inline-block cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                  <i class="fas fa-upload mr-2"></i>ファイルをアップロード
                              </label>
@@ -126,6 +131,7 @@
         const micLabel = document.getElementById('mic-label');
         const recordStatus = document.getElementById('record-status');
         const timer = document.getElementById('timer');
+        const downloadBtn = document.getElementById('download-btn');
         const audioUpload = document.getElementById('audio-upload');
         const audioUploadLabel = document.querySelector('label[for="audio-upload"]');
         const transcribedText = document.getElementById('transcribed-text');
@@ -155,6 +161,12 @@
         let finalTranscript = '';
         let timerInterval;
         let secondsElapsed = 0;
+        
+        // MediaRecorder関連の変数
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+
 
         // --- ファイルアップロード処理 ---
         if(recognition) {
@@ -173,6 +185,7 @@
             recordBtn.disabled = true;
             audioUpload.disabled = true;
             audioUploadLabel.classList.add('opacity-50', 'cursor-not-allowed');
+            downloadBtn.classList.add('hidden');
             transcribedText.value = '';
             finalTranscript = '';     
 
@@ -219,31 +232,59 @@
                 }
             });
 
-            const startRecording = (isFromFile = false) => {
+            const startRecording = async (isFromFile = false) => {
                 if (isRecording) return;
-                isRecording = true;
-                finalTranscript = transcribedText.value; 
-                recognition.start();
                 
-                if (!isFromFile) {
-                    recordBtn.classList.add('glowing-mic');
-                    recordBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                    recordBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                    micIcon.classList.remove('fa-microphone');
-                    micIcon.classList.add('fa-stop');
-                    micLabel.textContent = '録音停止';
-                    
-                    recordStatus.classList.add('hidden');
-                    timer.classList.remove('hidden');
-                    secondsElapsed = 0;
-                    timer.textContent = '00:00';
-                    timerInterval = setInterval(() => {
-                        secondsElapsed++;
-                        const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
-                        const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
-                        timer.textContent = `${minutes}:${seconds}`;
-                    }, 1000);
+                finalTranscript = transcribedText.value;
+                downloadBtn.classList.add('hidden');
+
+                if (!isFromFile) { // マイクからの録音の場合
+                    try {
+                        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        
+                        // MediaRecorderのセットアップ
+                        audioChunks = [];
+                        mediaRecorder = new MediaRecorder(audioStream);
+                        mediaRecorder.ondataavailable = event => {
+                            audioChunks.push(event.data);
+                        };
+                        mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            downloadBtn.href = audioUrl;
+                            downloadBtn.download = `recording-${new Date().toISOString()}.webm`;
+                            downloadBtn.classList.remove('hidden');
+                        };
+                        mediaRecorder.start();
+
+                        // UIの更新
+                        recordBtn.classList.add('glowing-mic');
+                        recordBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        recordBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        micIcon.classList.remove('fa-microphone');
+                        micIcon.classList.add('fa-stop');
+                        micLabel.textContent = '録音停止';
+                        
+                        recordStatus.classList.add('hidden');
+                        timer.classList.remove('hidden');
+                        secondsElapsed = 0;
+                        timer.textContent = '00:00';
+                        timerInterval = setInterval(() => {
+                            secondsElapsed++;
+                            const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                            const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
+                            timer.textContent = `${minutes}:${seconds}`;
+                        }, 1000);
+
+                    } catch (err) {
+                        recordStatus.textContent = 'マイクへのアクセスが拒否されました。';
+                        console.error("getUserMedia error:", err);
+                        return; // マイクが許可されなかったので処理を中断
+                    }
                 }
+                
+                isRecording = true;
+                recognition.start();
             };
 
             const stopRecording = (isFromFile = false) => {
@@ -251,7 +292,11 @@
                 isRecording = false;
                 recognition.stop();
 
-                if (!isFromFile) {
+                if (!isFromFile) { // マイクからの録音停止の場合
+                    mediaRecorder.stop();
+                    audioStream.getTracks().forEach(track => track.stop());
+
+                    // UIの更新
                     recordBtn.classList.remove('glowing-mic');
                     recordBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
                     recordBtn.classList.add('bg-red-600', 'hover:bg-red-700');
