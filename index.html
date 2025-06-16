@@ -59,7 +59,11 @@
                         <i id="mic-icon" class="fas fa-microphone text-4xl"></i>
                         <span id="mic-label" class="mt-2 text-sm font-medium">録音開始</span>
                     </button>
-                    <p id="record-status" class="text-gray-400 h-5 text-center">&nbsp;</p>
+                    <!-- ステータスとタイマー表示エリア -->
+                    <div class="h-8 text-center">
+                        <p id="record-status" class="text-gray-400">&nbsp;</p>
+                        <p id="timer" class="text-gray-400 font-mono text-lg hidden">00:00</p>
+                    </div>
 
                     <!-- ファイルアップロード機能 -->
                     <div class="w-full pt-4 border-t border-gray-700 text-center">
@@ -121,6 +125,7 @@
         const micIcon = document.getElementById('mic-icon');
         const micLabel = document.getElementById('mic-label');
         const recordStatus = document.getElementById('record-status');
+        const timer = document.getElementById('timer');
         const audioUpload = document.getElementById('audio-upload');
         const audioUploadLabel = document.querySelector('label[for="audio-upload"]');
         const transcribedText = document.getElementById('transcribed-text');
@@ -148,6 +153,8 @@
 
         let isRecording = false;
         let finalTranscript = '';
+        let timerInterval;
+        let secondsElapsed = 0;
 
         // --- ファイルアップロード処理 ---
         if(recognition) {
@@ -163,12 +170,11 @@
                 return;
             }
 
-            // 処理中は操作を無効化
             recordBtn.disabled = true;
             audioUpload.disabled = true;
             audioUploadLabel.classList.add('opacity-50', 'cursor-not-allowed');
-            transcribedText.value = ''; // テキストをクリア
-            finalTranscript = '';     // 内部のテキストもクリア
+            transcribedText.value = '';
+            finalTranscript = '';     
 
             recordStatus.textContent = 'ファイルの文字起こしを準備中...';
 
@@ -183,12 +189,12 @@
 
             audio.oncanplaythrough = () => {
                 recordStatus.textContent = '文字起こし中 (音声が再生されます)';
-                startRecording(true); // UIを変更せずに録音開始
+                startRecording(true);
                 audio.play();
             };
 
             audio.onended = () => {
-                stopRecording(true); // UIを変更せずに録音停止
+                stopRecording(true);
                 recordStatus.textContent = 'ファイルの文字起こしが完了しました。';
                 cleanup();
             };
@@ -226,7 +232,17 @@
                     micIcon.classList.remove('fa-microphone');
                     micIcon.classList.add('fa-stop');
                     micLabel.textContent = '録音停止';
-                    recordStatus.textContent = '録音中...';
+                    
+                    recordStatus.classList.add('hidden');
+                    timer.classList.remove('hidden');
+                    secondsElapsed = 0;
+                    timer.textContent = '00:00';
+                    timerInterval = setInterval(() => {
+                        secondsElapsed++;
+                        const minutes = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                        const seconds = (secondsElapsed % 60).toString().padStart(2, '0');
+                        timer.textContent = `${minutes}:${seconds}`;
+                    }, 1000);
                 }
             };
 
@@ -243,6 +259,10 @@
                     micIcon.classList.remove('fa-stop');
                     micLabel.textContent = '録音開始';
                     recordStatus.textContent = '録音を停止しました。';
+
+                    recordStatus.classList.remove('hidden');
+                    timer.classList.add('hidden');
+                    clearInterval(timerInterval);
                 }
                 
                 if (transcribedText.value.trim().length > 0) {
@@ -269,16 +289,14 @@
             recognition.onend = () => {
                 const isFileMode = audioUpload.disabled;
                 if (isRecording && !isFileMode) {
-                    // マイク録音中にも関わらず停止した場合、自動で再開
                     recognition.start();
                 }
-                // ファイル再生の場合は onended で stopRecording が呼ばれるため、ここでは何もしない
             };
 
             recognition.onerror = (event) => {
                 recordStatus.textContent = `エラーが発生しました: ${event.error}`;
                 if (isRecording) {
-                    stopRecording(audioUpload.disabled); // ファイルモードかどうかを渡す
+                    stopRecording(audioUpload.disabled);
                 }
             };
         }
